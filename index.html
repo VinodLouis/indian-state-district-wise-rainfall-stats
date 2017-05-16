@@ -1,0 +1,182 @@
+<html>
+    <head>
+        <title>Historical Rainfall stats</title>
+        <link href="css/tipsy/tipsy.css" rel="stylesheet"/>
+        <script src="scripts/vendor/d3/colorbrewer.js"></script>
+        <script type="text/javascript" src="scripts/vendor/jquery/jquery-1.6.2.min.js"></script>
+        <script type="text/javascript" src="scripts/vendor/tipsy/tipsy.js"></script>
+        <script src="scripts/vendor/d3/d3.v4.js"></script>
+        <style>
+            rect.bordered {
+            stroke: #E6E6E6;
+            stroke-width:2px;
+            }
+            text{
+            font-family:monospace;
+            }
+            .svg-ground{
+            display: block;
+            width:700px;
+            margin:auto;
+            }
+        </style>
+    </head>
+    <body>
+        <br/>
+        <p style="text-align:center;"><strong><i> State - District wise monthly rainfall 2004-2010</i></strong></p>
+        <div style="text-align:center">
+            State : <select id="stateGroup" onchange="populateCity()"></select> &nbsp;&nbsp;
+            District : <select id="cityGroup" onchange="drawChart()"></select>
+        </div>
+        <div id="chart" class="svg-ground"></div>
+        <div id="dataset-picker">
+    </body>
+    <script>
+        //global data contains the json
+        var _GLB_DATA = null;
+
+        //defaults for the charts
+        var margin = { top: 50, right: 0, bottom: 100, left: 50 },
+              width = 700 - margin.left - margin.right,
+              height = 600 - margin.top - margin.bottom,
+              gridSize = Math.floor(width / 12),
+              legendElementWidth = gridSize,
+              buckets = 9,
+              colors = colorbrewer.YlGnBu[9],
+              years = [2004, 2005, 2006, 2007, 2008, 2009, 2010],
+              shortMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+              months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+
+          var svg = d3.select("#chart").append("svg")
+              .attr("width", width + margin.left + margin.right)
+              .attr("height", height + margin.top + margin.bottom)
+              .append("g")
+              .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+          //append years label
+          var dayLabels = svg.selectAll(".yearsLabel")
+              .data(years)
+              .enter().append("text")
+                .text(function (d) { return d; })
+                .attr("x", 0)
+                .attr("y", (d, i) => i * gridSize)
+                .style("text-anchor", "end")
+                .attr("transform", "translate(-6," + gridSize / 1.5 + ")")
+
+          //append months label
+          var timeLabels = svg.selectAll(".monthLabel")
+              .data(shortMonths)
+              .enter().append("text")
+                .text((d) => d)
+                .attr("x", (d, i) => i * gridSize)
+                .attr("y", 0)
+                .style("text-anchor", "middle")
+                .attr("transform", "translate(" + gridSize / 2 + ", -6)")
+
+          //function which draws chart
+          function drawHeatmapChart(rawData) {
+
+            var data = [];
+              var maxValue = 0;
+              rawData.forEach(function(eachRow){
+                months.forEach(function(eachMonth){
+                  if(eachRow.data[eachMonth] != "N.A." && parseFloat(eachRow.data[eachMonth]) > maxValue){
+                    maxValue = parseFloat(eachRow.data[eachMonth]);
+                  }
+                  data.push({year:parseInt(eachRow.data["Year"],10),month:eachMonth,value:(eachRow.data[eachMonth] != "N.A.") ? parseFloat(eachRow.data[eachMonth]) : 0});
+                })
+              });
+
+              //refresh ground
+              $("#ground").html("");
+
+              var colorScale = d3.scaleQuantile()
+                .domain([0, buckets - 1, maxValue])
+                .range(colors);
+
+              var cards = svg.append("g").attr("id","ground").selectAll(".hour")
+                  .data(data)
+                  .enter()
+
+
+              //append rect
+              cards.append("rect")
+                  .attr("x", (d) => months.indexOf(d.month) * gridSize)
+                  .attr("y", (d) => years.indexOf(d.year) * gridSize)
+                  .attr("rx", 4)
+                  .attr("ry", 4)
+                  .attr("class", "hour bordered")
+                  .attr("width", gridSize)
+                  .attr("height", gridSize)
+                  .style("fill", colors[0])
+                .merge(cards)
+                  .transition()
+                  .duration(1000)
+                  .style("fill", (d) => colorScale(d.value))
+                  .on("end",function(){
+                    //tipsy
+                    d3.select(this).append("title").text("Recored " + this.__data__.value + " mm rainfall in " + this.__data__.month + " of " + this.__data__.year);
+                    $(this).tipsy();
+                  });
+
+              cards.exit().remove();
+
+              var legend = svg.selectAll(".legend")
+                  .data([0].concat(colorScale.quantiles()), (d) => d);
+
+              var legend_g = legend.enter().append("g")
+                  .attr("class", "legend");
+
+              legend_g.append("rect")
+                .attr("x", (d, i) => legendElementWidth * i)
+                .attr("y", height)
+                .attr("width", legendElementWidth)
+                .attr("height", gridSize / 2)
+                .style("fill", (d, i) => colors[i]);
+
+              legend_g.append("text")
+                .attr("class", "mono")
+                .text((d) => "≥ " + Math.round(d))
+                .attr("x", (d, i) => legendElementWidth * i)
+                .attr("y", height + gridSize);
+
+              legend.exit().remove();
+
+          };
+
+          //on ready
+          $(document).ready(function(){
+            d3.json("../../data/file.json",function(data){
+              _GLB_DATA = data;
+              var strHTML = '<option value="" selected>SELECT STATE</option>';
+              Object.keys(data).forEach(function(el){
+                strHTML+= '<option value="' + el + '">' + el + '</option>';
+              });
+              $("#stateGroup").html(strHTML);
+            });
+          });
+
+          //populate city
+          function populateCity(){
+            var state = $("#stateGroup").val();
+            if(state == "")
+              return;
+            var strHTML = '<option value="" selected>SELECT DISTRICT</option>';
+            Object.keys(_GLB_DATA[state]).forEach(function(el){
+              strHTML+= '<option value="' + el + '">' + el + '</option>';
+            });
+            $("#cityGroup").html(strHTML);
+          }
+
+          //draw chart
+          function drawChart(){
+            var state = $("#stateGroup").val();
+            var city = $("#cityGroup").val();
+            if(state == "" || city == "")
+              return;
+              drawHeatmapChart(_GLB_DATA[state][city])
+          }
+
+    </script>
+</html>
