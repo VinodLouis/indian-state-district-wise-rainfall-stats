@@ -8,5 +8,5 @@ The data is borrowed from the [IndianWaterPortal](http://www.indiawaterportal.or
 
 Technology used : Javascript/D3.js
 
-DEMO [SEE HERE LIVE](http://www.vinodlouis.in/rainfall-district-wise/)
+DEMO [SEE HERE LIVE](http://www.vinodlouis.com/demos/rainfall-district-wise/)
 ![Rainfall in Idukki district kerala](https://raw.githubusercontent.com/VinodLouis/indian-state-district-wise-rainfall-stats/master/data/demo.png)
